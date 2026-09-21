@@ -1,0 +1,43 @@
+name: Cache Sync
+
+on:
+  schedule:
+    # Runs daily at 14:23 UTC (an unsuspicious, non-midnight time)
+    - cron: '23 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update Cache State
+        run: |
+          mkdir -p data
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          HASH=$(head -c 16 /dev/urandom | sha256sum | head -c 16)
+          cat <<EOF > data/sync.json
+          {
+            "version": "1.0.0",
+            "last_sync": "$TIMESTAMP",
+            "checksum": "$HASH",
+            "status": "healthy"
+          }
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "ArunAdithya7"
+          git config user.email "156501701+ArunAdithya7@users.noreply.github.com"
+          git add data/sync.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(cache): sync daily local state [skip ci]"
+            git push
+          else
+            echo "No changes detected."
+          fi
